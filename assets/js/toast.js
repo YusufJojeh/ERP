@@ -9,13 +9,16 @@ class ToastManager {
         this.toasts = [];
         this.maxToasts = 5;
         this.defaultDuration = 5000; // 5 seconds
-        this.init();
+        this.initialized = false;
+        // Don't initialize here - wait for DOM
     }
 
     /**
      * Initialize toast container
      */
     init() {
+        if (this.initialized) return;
+        
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
@@ -30,10 +33,15 @@ class ToastManager {
      * Create toast container
      */
     createContainer() {
-        // Check if body exists
+        // Check if body exists - critical check
         if (!document.body) {
             // Wait a bit and try again
             setTimeout(() => this.createContainer(), 10);
+            return;
+        }
+
+        // Double check body exists before appendChild
+        if (!document.body) {
             return;
         }
 
@@ -41,10 +49,19 @@ class ToastManager {
         if (!document.querySelector('.toast-container')) {
             this.container = document.createElement('div');
             this.container.className = 'toast-container';
-            document.body.appendChild(this.container);
+            try {
+                document.body.appendChild(this.container);
+            } catch (e) {
+                console.error('Error appending toast container:', e);
+                // Retry after a delay
+                setTimeout(() => this.createContainer(), 50);
+                return;
+            }
         } else {
             this.container = document.querySelector('.toast-container');
         }
+        
+        this.initialized = true;
     }
 
     /**
@@ -213,15 +230,29 @@ let toastManager = null;
 // Initialize toast manager when DOM is ready
 function initToastManager() {
     if (!toastManager) {
+        // Check if body exists before creating ToastManager
+        if (!document.body) {
+            // Wait a bit and try again
+            setTimeout(initToastManager, 10);
+            return;
+        }
         toastManager = new ToastManager();
+        // Initialize the container
+        toastManager.init();
     }
 }
 
-// Initialize immediately if DOM is already ready, otherwise wait
+// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initToastManager);
 } else {
-    initToastManager();
+    // DOM might be ready, but body might not be
+    if (document.body) {
+        initToastManager();
+    } else {
+        // Wait for body to be available
+        setTimeout(initToastManager, 10);
+    }
 }
 
 // Global helper functions

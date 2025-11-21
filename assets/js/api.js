@@ -5,7 +5,16 @@
 
 class ERPApi {
     constructor() {
-        this.baseUrl = window.location.origin + '/ERP';
+        // Get base URL from window.APP_URL if available, otherwise calculate from current location
+        if (typeof window.APP_URL !== 'undefined' && window.APP_URL) {
+            this.baseUrl = window.APP_URL.replace(/\/$/, ''); // Remove trailing slash
+        } else {
+            // Calculate from current location
+            const path = window.location.pathname;
+            // Remove /index.php or /views/... from path to get base
+            const basePath = path.split('/index.php')[0].split('/views/')[0];
+            this.baseUrl = window.location.origin + basePath;
+        }
         this.apiUrl = this.baseUrl + '/api.php';
     }
     
@@ -13,7 +22,15 @@ class ERPApi {
      * Make API request
      */
     async request(endpoint, options = {}) {
-        const url = `${this.apiUrl}?action=${endpoint}`;
+        // Parse endpoint - if it contains &, it means it has additional params
+        let url;
+        if (endpoint.includes('&')) {
+            // Endpoint already contains params (e.g., "notifications&limit=1&unread_only=1")
+            const [action, ...params] = endpoint.split('&');
+            url = `${this.apiUrl}?action=${action}&${params.join('&')}`;
+        } else {
+            url = `${this.apiUrl}?action=${endpoint}`;
+        }
         
         const defaultOptions = {
             method: 'GET',
@@ -26,12 +43,20 @@ class ERPApi {
         
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
             
+            // Check if response is ok before trying to parse JSON
             if (!response.ok) {
-                throw new Error(data.message || 'API request failed');
+                const errorText = await response.text();
+                throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
             }
             
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Expected JSON but got: ${contentType} - ${text.substring(0, 100)}`);
+            }
+            
+            const data = await response.json();
             return data;
         } catch (error) {
             console.error('API Error:', error);
@@ -46,7 +71,8 @@ class ERPApi {
             unread_only: unreadOnly ? '1' : '0'
         });
         
-        return this.request(`notifications?${params}`);
+        // Fix: pass params correctly in the request
+        return this.request(`notifications&${params.toString()}`);
     }
     
     async markNotificationAsRead(notificationId) {

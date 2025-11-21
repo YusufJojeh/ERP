@@ -36,6 +36,10 @@ if (!isset($currentPage)) {
     <link href="<?php echo rtrim(APP_URL, '/'); ?>/assets/css/toast.css" rel="stylesheet">
     
     <!-- API JavaScript -->
+    <script>
+        // Set APP_URL for JavaScript
+        window.APP_URL = '<?php echo rtrim(APP_URL, '/'); ?>';
+    </script>
     <script src="<?php echo rtrim(APP_URL, '/'); ?>/assets/js/api.js"></script>
     
     <!-- Toast JavaScript -->
